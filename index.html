@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Electronic Store</title>
+  <!--Bootstrap CSS-->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <!--Bootstrap JS-->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" defer integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <!--NAVBAR-->
+  <nav class="navbar navbar-dark bg-primary mb-4">
+    <div class="container-fluid">
+      <span class="navbar-brand">Electronic Store</span>
+      <span class="badge bg-warning text-dark">Cart Items: <span id="cartCount">0</span></span>
+    </div>
+  </nav>
+
+  <!--MAIN SECTION-->
+  <div class="container">
+    <!-- Category Filters -->
+    <div class="mb-4">
+      <button class="btn btn-outline-primary filter-btn" data-category="All">All</button>
+      <button class="btn btn-outline-primary filter-btn" data-category="Smartphone">Smartphones</button>
+      <button class="btn btn-outline-primary filter-btn" data-category="Laptop">Laptops</button>
+    </div>
+
+    <div class="row">
+      <!-- Products -->
+      <div class="col-lg-8">
+        <div class="row" id="productsContainer"></div>
+      </div>
+      <!-- Cart -->
+      <div class="col-lg-4">
+        <div class="card sticky-top">
+          <div class="card-header bg-success text-white">Shopping Cart</div>
+          <div class="card-body">
+            <div id="cartItems"></div>
+            <hr>
+            <h5>Items:<span id="totalItems">0</span> </h5>
+            <h4>Total: $<span id="totalCost">0</span> </h4>
+            <button class="btn btn-success w-100 mt-3" id="checkoutBtn">Checkout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!--Dataset: list of 10 producst -->
+  <script src="dataset.js"></script>
+
+
+  <!--JS codes to implement shopping cart-->
+  <script>
+    // Load the saved cart, or start with an empty cart.
+    let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+    const container = document.getElementById("productsContainer");
+    const cartItems = document.getElementById("cartItems");
+    const totalCost = document.getElementById("totalCost");
+    const totalItems = document.getElementById("totalItems");
+    const cartCount = document.getElementById("cartCount");
+    
+    //--------------------------------------------------------------------------
+    //Display Products
+    const renderProducts = (productsToRender) => {
+      // Clear the current product list before rendering the selected products.
+      container.innerHTML = "";
+      productsToRender.forEach(product => {
+        // Show the stock status and quantity for each product.
+        const stockBadge = product.inStock ? `<span class="badge bg-success">In Stock (${product.stockQuantity})</span>`
+                                          : `<span class="badge bg-danger">Out of Stock</span>`;
+        // Display up to two reviews for each product.
+          const reviewsHtml = product.reviews.slice(0, 2).map(review => 
+            `<div class="small border-top mt-1 pt-1">
+                    ⭐ ${review.rating} <strong>${review.user}</strong>
+                    <div>${review.comment}</div>
+                </div>
+              `).join("");
+        // Add the product card to the page.
+        container.innerHTML += `
+          <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+              <div class="ratio ratio-4x3">
+                <img src=${product.image} class="object-fit-cover" alt="${product.name}">
+              </div>
+              <div class="card-body">
+                <p class="badge bg-secondary">${product.category}</p>
+                <h5>${product.name}</h5>
+                <p>${product.description}</p>
+                <h4 class="text-primary">$${product.price}</h4>
+                ${stockBadge}
+                <div class="mt-2">${reviewsHtml}</div>
+                <button class="btn btn-primary mt-3 w-100" onclick="addToCart(${product.id})" 
+                  ${!product.inStock ? "disabled" : ""}>Add To Cart</button>
+              </div>
+            </div>
+          </div>  `;
+        });
+    }
+
+    //--------------------------------------------------------------------------
+    //Add to Cart
+    const addToCart = (id) => {
+      // Find the selected product and check whether it is already in the cart.
+      const product = products.find(p => p.id === id);
+      const existing = cart.find(item => item.id === id);
+      if (existing) {
+        //Only increase quantity if possible
+        if (existing.quantity < product.stockQuantity) {
+          existing.quantity++;
+        } else {
+          alert("Maximum stock reached.");
+        }
+      } else {
+        //Add a new product to cart
+        cart.push({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            quantity: 1
+        });
+      }
+      // Save the updated cart and refresh its display.
+      saveCart();
+      renderCart();
+    }
+
+    //--------------------------------------------------------------------------
+    //Increase Quantity
+    const increaseQuantity= (id) => {
+      // Find the cart item and its matching product stock limit.
+      const cartItem = cart.find(item => item.id === id);
+      const product = products.find(p => p.id === id);
+      if (cartItem.quantity < product.stockQuantity) {
+        cartItem.quantity++;
+        saveCart();
+        renderCart();
+      }
+    }
+
+    //--------------------------------------------------------------------------
+    //Decrease Quantity
+    const decreaseQuantity = (id) => {
+      // Reduce the selected item's quantity by one.
+      const cartItem = cart.find(item => item.id === id);
+      cartItem.quantity--;
+      if (cartItem.quantity <= 0) {
+        // Remove the item when its quantity reaches zero.
+        cart = cart.filter(item => item.id !== id);
+      }
+      // Save the change and refresh the cart display.
+      saveCart();
+      renderCart();
+    }
+
+    //--------------------------------------------------------------------------
+    //Render Cart
+    const renderCart = () => {
+      // Clear the cart display and reset the totals.
+      cartItems.innerHTML = "";
+      let grandTotal = 0;
+      let itemCount = 0;
+      cart.forEach(item => {
+        const subtotal = item.price * item.quantity;
+        grandTotal += subtotal;
+        itemCount += item.quantity;
+        // Add the current cart item and its quantity controls to the page.
+        cartItems.innerHTML += `
+          <div class="border rounded p-2 mb-2">
+            <h6>${item.name}</h6>
+            <div>Price: $${item.price}</div>
+            <div>Subtotal: $${subtotal}</div>
+            <div class="mt-2">
+              <button class="btn btn-sm btn-danger" onclick="decreaseQuantity(${item.id})">-</button>
+              <span class="mx-2"> ${item.quantity} </span>
+              <button class="btn btn-sm btn-success" onclick="increaseQuantity(${item.id})">+</button>
+            </div>
+          </div>  
+          `;
+      });
+      
+      // Update the totals shown in the cart and navbar.
+      totalCost.textContent = grandTotal.toFixed(2);
+      totalItems.textContent = itemCount;
+      cartCount.textContent = itemCount;
+    }
+
+    //--------------------------------------------------------------------------
+    //Local Storage
+    const saveCart = () => {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    }
+
+    //--------------------------------------------------------------------------
+    //Category Filter
+    document.querySelectorAll(".filter-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        // Read the category selected by the user.
+        const category = button.dataset.category;
+        if (category === "All") {
+          // Display every product when the All filter is selected.
+          renderProducts(products);
+        } else {
+          // Display only products that match the selected category.
+          renderProducts(products.filter(product => product.category === category));
+        }
+      });
+    });
+
+    //--------------------------------------------------------------------------
+    //Checkout
+    document.getElementById("checkoutBtn").addEventListener("click", () => {
+      // Do not place an order when the cart has no items.
+      if (cart.length === 0) {
+        alert("Your cart is empty.");
+        return;
+      }
+
+      // Calculate the order total before showing the confirmation message.
+      const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      alert(` Order Successfully Placed!
+              Items: ${cart.length}
+              Total: $${total.toFixed(2)}
+              Thank you for shopping with us!
+            `);
+      // Empty and save the cart after the order is placed.
+      cart = [];
+      saveCart();
+      renderCart();
+    });
+
+    //--------------------------------------------------------------------------
+    //Initial Load
+    // Render the products and saved cart when the page first opens.
+    renderProducts(products);
+    renderCart();
+        
+  </script>
+
+</body>
+</html>
